@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#23498f" />
+  <title>Dépenses Dauphine</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <img src="assets/dauphine-logo.jpeg" alt="Logo Dauphine" />
+        <div>
+          <strong>Dépenses Dauphine</strong>
+          <span id="roleLabel">Profil étudiant</span>
+        </div>
+      </div>
+      <button id="roleSwitch" class="ghost">Voir Parents</button>
+    </header>
+
+    <main>
+      <section id="studentView" class="view active">
+        <section class="hero watermark">
+          <p class="eyebrow">Bonjour Yoni</p>
+          <h1>Mes dépenses</h1>
+          <div class="metrics">
+            <article><span>Aujourd’hui</span><strong id="todayTotal">0,00 €</strong></article>
+            <article><span>Cette semaine</span><strong id="weekTotal">0,00 €</strong></article>
+            <article><span>Ce mois</span><strong id="monthTotal">0,00 €</strong></article>
+          </div>
+          <button id="scanBtn" class="primary large">📷 Photographier un ticket</button>
+          <input id="ticketInput" type="file" accept="image/*" capture="environment" hidden />
+        </section>
+
+        <section class="card">
+          <div class="section-title">
+            <h2>Semaine en cours</h2>
+            <select id="studentWeekSelect"></select>
+          </div>
+          <div id="studentExpenseList" class="expense-list"></div>
+        </section>
+
+        <section class="card">
+          <div class="section-title"><h2>Historique mensuel</h2></div>
+          <div id="monthBubbles" class="bubble-grid"></div>
+        </section>
+      </section>
+
+      <section id="parentView" class="view">
+        <section class="hero watermark">
+          <p class="eyebrow">Sabrina & Florent</p>
+          <h1>Tableau de bord parents</h1>
+          <div class="metrics">
+            <article><span>Dépensé ce mois</span><strong id="parentMonthTotal">0,00 €</strong></article>
+            <article><span>Budget</span><strong>900,00 €</strong></article>
+            <article><span>Reste</span><strong id="budgetRemaining">900,00 €</strong></article>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-title">
+            <h2>Répartition</h2>
+            <select id="parentMonthSelect"></select>
+          </div>
+          <div id="categoryBars" class="bars"></div>
+        </section>
+
+        <section class="card">
+          <div class="section-title"><h2>Toutes les dépenses</h2></div>
+          <div id="parentExpenseList" class="expense-list"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="reviewDialog">
+    <form method="dialog" id="reviewForm">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">Contrôle obligatoire</p>
+          <h2>Vérifier le ticket</h2>
+        </div>
+        <button value="cancel" class="icon-btn" aria-label="Fermer">×</button>
+      </div>
+      <div class="scan-grid">
+        <div class="preview-wrap"><img id="ticketPreview" alt="Aperçu du ticket" /></div>
+        <div>
+          <div id="ocrStatus" class="ocr-status">Prêt à analyser</div>
+          <label>Date<input id="expenseDate" type="date" required /></label>
+          <label>Commerce<input id="merchant" type="text" required /></label>
+          <label>Montant (€)<input id="amount" type="number" step="0.01" min="0" required /></label>
+          <label>Catégorie
+            <select id="category" required>
+              <option>Courses</option><option>Repas</option><option>Transport</option><option>Études</option><option>Logement</option><option>Santé</option><option>Loisirs</option><option>Vêtements</option><option>Divers</option>
+            </select>
+          </label>
+          <label>Commentaire<input id="note" type="text" placeholder="Optionnel" /></label>
+        </div>
+      </div>
+      <p class="hint">Aucune dépense n’est enregistrée tant que Yoni ne clique pas sur « Valider ».</p>
+      <div class="dialog-actions">
+        <button value="cancel" class="ghost">Annuler</button>
+        <button id="saveExpense" value="default" class="primary">✓ Valider la dépense</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
