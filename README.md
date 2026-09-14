@@ -1,19 +1,29 @@
-# Dépenses Dauphine — V2
+# Dépenses Dauphine — V3
 
-Version statique PWA pour GitHub Pages.
+Version PWA pour GitHub Pages.
 
-## Nouveautés
-- Connexion par numéro de téléphone + PIN à 4 chiffres.
-- Premier code universel : `1612`, puis changement obligatoire.
-- Session conservée sur l'appareil.
-- Profils Étudiant / Parent.
-- Bulle « Message étudiant » et « Message parents » chaque jour.
-- Dépenses journalières et totaux jour / semaine / mois.
-- Historique mensuel cliquable avec détail des dépenses du mois.
-- Logo `dauphine-logo.jpeg` utilisé s'il est présent dans le dépôt, avec fallback si l'image manque.
+## Nouveautés V3
+- Connexion par téléphone + PIN.
+- Premier code : `1612`, puis changement obligatoire.
+- Session mémorisée sur l’appareil : pas de reconnexion à chaque ouverture.
+- Dépenses : jour, semaine, mois, historique mensuel cliquable.
+- Messages du jour étudiant / parents.
+- **Photo du jour** : une photo par profil et par jour.
+- Visibilité : l’étudiant voit les photos de ses parents ; un parent voit uniquement les photos de l’étudiant.
+- Réactions : 🔥, 👏, ❤️.
+- **Série de jours avec photo** : se remet à 0 si une journée est manquée.
+- **Total de flammes reçues** : cumul séparé.
+- Nouveau badge/icône Dauphine pour iPhone/PWA : 180, 192 et 512 px.
+- Cache PWA versionné pour forcer le rafraîchissement de l’application et de l’icône.
 
-## Important
-Cette V2 utilise le stockage local du navigateur. Les données ne sont pas encore synchronisées entre plusieurs appareils. Pour une vraie utilisation familiale multi-téléphones, prévoir un backend sécurisé (par ex. Supabase) et une authentification serveur.
+## Important : synchronisation multi-téléphones
+Cette V3 stocke les données dans le navigateur (`localStorage`). Toutes les fonctions sont testables sur un appareil, mais pour que Yoni et ses deux parents voient réellement les mêmes photos, réactions, messages et dépenses depuis trois téléphones différents, il faut connecter l’application à une base cloud sécurisée (par exemple Supabase). La structure visuelle et fonctionnelle est déjà prête pour cette étape.
 
-## Mise en ligne
-Remplacer dans la branche `main` les fichiers `index.html`, `styles.css`, `app.js`, `manifest.webmanifest`, `sw.js` et `README.md`. Conserver `dauphine-logo.jpeg` déjà présent dans le dépôt.
+## Installation GitHub
+Envoyer **tous les fichiers de ce dossier** à la racine du dépôt GitHub puis `Commit changes` sur `main`.
+
+Après déploiement :
+1. Attendre 1 à 2 minutes.
+2. Supprimer l’ancienne icône de l’écran d’accueil de l’iPhone.
+3. Ouvrir le site dans Safari et actualiser.
+4. Partager → Sur l’écran d’accueil → Ajouter.
