@@ -1,9 +1,23 @@
 {
-  "name":"Dépenses Dauphine",
-  "short_name":"Dépenses",
-  "start_url":"./",
-  "display":"standalone",
-  "background_color":"#edf3fa",
-  "theme_color":"#0b1e3d",
-  "description":"Suivi familial des dépenses étudiantes"
+  "name": "Dépenses Dauphine",
+  "short_name": "Dépenses",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#edf3fa",
+  "theme_color": "#0b1e3d",
+  "description": "Suivi familial des dépenses étudiantes",
+  "icons": [
+    {
+      "src": "dauphine-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "dauphine-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }
