@@ -1,69 +1,102 @@
-const EUR = new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'});
-const $ = s => document.querySelector(s);
-const CATS = {Courses:'🛒',Repas:'🍽️',Transport:'🚌','Études':'📚',Logement:'🏠',Santé:'🩺',Loisirs:'🎟️','Vêtements':'👕',Divers:'•'};
-const seed = [
- {id:1,date:'2026-09-14',merchant:'Monoprix',amount:11.60,category:'Repas',note:'Déjeuner',source:'demo'},
- {id:2,date:'2026-09-14',merchant:'RATP',amount:31.20,category:'Transport',note:'Transport',source:'demo'},
- {id:3,date:'2026-09-15',merchant:'CROUS',amount:3.30,category:'Repas',note:'Cantine',source:'demo'},
- {id:4,date:'2026-09-15',merchant:'Librairie',amount:15.30,category:'Études',note:'Livre',source:'demo'},
- {id:5,date:'2026-09-16',merchant:'Carrefour',amount:24.50,category:'Courses',note:'Courses',source:'demo'}
-];
-let expenses = JSON.parse(localStorage.getItem('dd_expenses')||'null') || seed;
-let pendingImage = null;
-function save(){localStorage.setItem('dd_expenses',JSON.stringify(expenses));render();}
-function parseDate(d){return new Date(d+'T12:00:00');}
-function isoWeekStart(date){const d=new Date(date);const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day);d.setHours(0,0,0,0);return d;}
-function keyWeek(date){return isoWeekStart(parseDate(date)).toISOString().slice(0,10)}
-function fmtDate(s){return parseDate(s).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}
-function monthKey(s){return s.slice(0,7)}
-function monthLabel(k){return new Date(k+'-01T12:00:00').toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}
-function todayISO(){return new Date().toISOString().slice(0,10)}
-function total(list){return list.reduce((a,b)=>a+Number(b.amount||0),0)}
-function render(){
- const today=todayISO(); const curMonth=today.slice(0,7); const wk=keyWeek(today);
- $('#todayTotal').textContent=EUR.format(total(expenses.filter(x=>x.date===today)));
- $('#weekTotal').textContent=EUR.format(total(expenses.filter(x=>keyWeek(x.date)===wk)));
- const currentMonthExpenses=expenses.filter(x=>monthKey(x.date)===curMonth);
- $('#monthTotal').textContent=EUR.format(total(currentMonthExpenses));
- $('#parentMonthTotal').textContent=EUR.format(total(currentMonthExpenses));
- $('#budgetRemaining').textContent=EUR.format(Math.max(0,900-total(currentMonthExpenses)));
+const APP_KEY='dd_v2_state';
+const SESSION_KEY='dd_v2_session';
+const DEFAULT_PIN='1612';
+const CATS={Courses:'🛒',Repas:'🍽️',Transport:'🚇',Études:'📚',Loisirs:'🎬',Divers:'🧾'};
 
- const weeks=[...new Set(expenses.map(x=>keyWeek(x.date)))].sort().reverse();
- $('#studentWeekSelect').innerHTML=weeks.map(w=>`<option value="${w}" ${w===wk?'selected':''}>Semaine du ${new Date(w+'T12:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</option>`).join('');
- renderStudentWeek($('#studentWeekSelect').value || weeks[0]);
- const months=[...new Set(expenses.map(x=>monthKey(x.date)))].sort().reverse();
- $('#monthBubbles').innerHTML=months.map(m=>`<div class="bubble"><span>${monthLabel(m)}</span><strong>${EUR.format(total(expenses.filter(x=>monthKey(x.date)===m)))}</strong></div>`).join('');
- $('#parentMonthSelect').innerHTML=months.map(m=>`<option value="${m}" ${m===curMonth?'selected':''}>${monthLabel(m)}</option>`).join('');
- renderParentMonth($('#parentMonthSelect').value || months[0]);
+const fmt=n=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(Number(n||0));
+const ym=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+const today=()=>new Date().toISOString().slice(0,10);
+const monthName=k=>{const [y,m]=k.split('-').map(Number);return new Intl.DateTimeFormat('fr-FR',{month:'long',year:'numeric'}).format(new Date(y,m-1,1));};
+const safePhone=s=>(s||'').replace(/\D/g,'');
+
+function load(){try{return JSON.parse(localStorage.getItem(APP_KEY))||{profiles:{},expenses:[],messages:{}}}catch{return {profiles:{},expenses:[],messages:{}}}}
+function save(){localStorage.setItem(APP_KEY,JSON.stringify(state))}
+let state=load();
+let session=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');
+let view='home';
+
+function currentProfile(){return session?state.profiles[session.phone]:null}
+function toast(t){const e=document.createElement('div');e.className='toast';e.textContent=t;document.body.appendChild(e);setTimeout(()=>e.remove(),1800)}
+
+function app(){
+  if(!session || !currentProfile()) return renderLogin();
+  const p=currentProfile();
+  if(p.mustChangePin) return renderChangePin(true);
+  renderShell();
 }
-function expenseHTML(x){return `<div class="expense"><div class="ico">${CATS[x.category]||'•'}</div><div class="meta"><strong>${escapeHtml(x.merchant)}</strong><span>${escapeHtml(x.category)} · ${escapeHtml(x.note||'')}</span></div><div class="amt">${EUR.format(x.amount)}</div></div>`}
-function renderStudentWeek(w){
- const list=expenses.filter(x=>keyWeek(x.date)===w).sort((a,b)=>a.date.localeCompare(b.date));
- let html=''; let last=''; list.forEach(x=>{if(x.date!==last){html+=`<div class="day-label">${fmtDate(x.date)} · ${EUR.format(total(list.filter(e=>e.date===x.date)))}</div>`;last=x.date}html+=expenseHTML(x)});
- $('#studentExpenseList').innerHTML=html||'<p>Aucune dépense pour cette semaine.</p>';
+
+function renderLogin(){
+  document.getElementById('app').innerHTML=`<div class="auth"><div class="auth-card">
+    <img class="auth-logo" src="dauphine-logo.jpeg" onerror="this.style.display='none'" alt="Dauphine">
+    <h1>Dépenses Dauphine</h1><p>Connexion familiale simple</p>
+    <form id="login" class="form">
+      <div class="field"><label>Numéro de téléphone</label><input id="phone" inputmode="tel" autocomplete="tel" placeholder="06 00 00 00 00" required></div>
+      <div class="field"><label>Code à 4 chiffres</label><input id="pin" class="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="••••" required></div>
+      <button class="btn btn-primary btn-block">Se connecter</button>
+    </form>
+    <p class="subtle">Premier accès : code initial <b>1612</b>. Vous choisirez ensuite votre code personnel.</p>
+  </div></div>`;
+  document.getElementById('login').onsubmit=e=>{
+    e.preventDefault(); const phone=safePhone(phoneEl().value), pin=document.getElementById('pin').value;
+    if(phone.length<10) return toast('Numéro de téléphone invalide');
+    let p=state.profiles[phone];
+    if(!p){
+      if(pin!==DEFAULT_PIN) return toast('Pour un premier accès, utilisez 1612');
+      const role=confirm('Ce profil est-il celui de l’étudiant ?\nOK = Étudiant / Annuler = Parent')?'student':'parent';
+      p={phone,pin:DEFAULT_PIN,role,name:role==='student'?'Yoni':'Parent',mustChangePin:true,createdAt:new Date().toISOString()}; state.profiles[phone]=p; save();
+    } else if(p.pin!==pin){ return toast('Code incorrect'); }
+    session={phone}; localStorage.setItem(SESSION_KEY,JSON.stringify(session)); app();
+  };
 }
-function renderParentMonth(m){
- const list=expenses.filter(x=>monthKey(x.date)===m).sort((a,b)=>b.date.localeCompare(a.date)); const grand=total(list);
- const sums={};list.forEach(x=>sums[x.category]=(sums[x.category]||0)+Number(x.amount));
- $('#categoryBars').innerHTML=Object.entries(sums).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="bar-row"><span>${CATS[k]||'•'} ${k}</span><div class="track"><div class="fill" style="width:${grand?Math.round(v/grand*100):0}%"></div></div><strong>${EUR.format(v)}</strong></div>`).join('')||'<p>Aucune dépense.</p>';
- $('#parentExpenseList').innerHTML=list.map(x=>expenseHTML(x)).join('')||'<p>Aucune dépense.</p>';
+function phoneEl(){return document.getElementById('phone')}
+
+function renderChangePin(first=false){
+  const p=currentProfile();
+  document.getElementById('app').innerHTML=`<div class="auth"><div class="auth-card"><h1>${first?'Choisissez votre code':'Modifier le code'}</h1><p>4 chiffres. Le code 1612 ne sera plus accepté pour ce profil.</p>
+  <form id="chg" class="form"><div class="field"><label>Nouveau code</label><input id="p1" class="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required></div><div class="field"><label>Confirmer</label><input id="p2" class="pin" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required></div><button class="btn btn-primary btn-block">Enregistrer</button></form></div></div>`;
+  document.getElementById('chg').onsubmit=e=>{e.preventDefault();let a=p1.value,b=p2.value;if(!/^\d{4}$/.test(a)||a!==b)return toast('Les deux codes doivent être identiques');if(a===DEFAULT_PIN)return toast('Choisissez un code différent de 1612');p.pin=a;p.mustChangePin=false;save();toast('Code enregistré');setTimeout(app,300)};
 }
-function escapeHtml(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-$('#roleSwitch').addEventListener('click',()=>{const student=$('#studentView').classList.contains('active');$('#studentView').classList.toggle('active',!student);$('#parentView').classList.toggle('active',student);$('#roleLabel').textContent=student?'Profils parents':'Profil étudiant';$('#roleSwitch').textContent=student?'Voir Yoni':'Voir Parents';});
-$('#studentWeekSelect').addEventListener('change',e=>renderStudentWeek(e.target.value));
-$('#parentMonthSelect').addEventListener('change',e=>renderParentMonth(e.target.value));
-$('#scanBtn').addEventListener('click',()=>$('#ticketInput').click());
-$('#ticketInput').addEventListener('change',async e=>{const file=e.target.files?.[0]; if(!file)return; pendingImage=file; const url=URL.createObjectURL(file);$('#ticketPreview').src=url;$('#expenseDate').value=todayISO();$('#merchant').value='';$('#amount').value='';$('#category').value='Courses';$('#note').value='';$('#reviewDialog').showModal();await runOCR(file);});
-async function runOCR(file){
- $('#ocrStatus').textContent='Analyse du ticket en cours…';
- try{const {data:{text}}=await Tesseract.recognize(file,'fra'); const lines=text.split(/\n/).map(x=>x.trim()).filter(Boolean); const joined=lines.join(' ');
- const dateMatch=joined.match(/\b(\d{1,2})[\/.-](\d{1,2})[\/.-](20\d{2})\b/); if(dateMatch){$('#expenseDate').value=`${dateMatch[3]}-${dateMatch[2].padStart(2,'0')}-${dateMatch[1].padStart(2,'0')}`}
- const moneyMatches=[...joined.matchAll(/(\d+[,.]\d{2})\s*€?/g)].map(m=>Number(m[1].replace(',','.'))).filter(n=>n>0&&n<5000); if(moneyMatches.length) $('#amount').value=Math.max(...moneyMatches).toFixed(2);
- const merchant=lines.find(l=>l.length>2 && !/ticket|merci|total|tva|date|heure|carte|cb/i.test(l)); if(merchant) $('#merchant').value=merchant.slice(0,50);
- const low=joined.toLowerCase(); let cat='Divers'; if(/ratp|sncf|navigo|bus|metro|métro|uber/.test(low))cat='Transport'; else if(/crous|restaurant|sandwich|pizza|burger|cafe|café/.test(low))cat='Repas'; else if(/carrefour|monoprix|auchan|leclerc|super u|intermarch/.test(low))cat='Courses'; else if(/librairie|livre|fnac|papeterie/.test(low))cat='Études'; $('#category').value=cat;
- $('#ocrStatus').textContent='Analyse terminée — vérifie chaque information avant validation.';
- }catch(err){$('#ocrStatus').textContent='Lecture automatique incomplète. Vérifie et saisis les informations manuellement.';}
+
+function renderShell(){
+ const p=currentProfile();
+ document.getElementById('app').innerHTML=`<div class="shell">
+ <header class="header"><div class="watermark">D</div><div class="header-row"><div class="brand"><img class="logo" src="dauphine-logo.jpeg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Dauphine"><div class="logo-fallback">D</div><div><div class="eyebrow">DÉPENSES DAUPHINE</div><div class="title">${p.role==='student'?'Profil étudiant':'Profil parents'}</div></div></div><button class="role-pill" id="roleBtn">${p.role==='student'?'Voir Parents':'Voir Étudiant'}</button></div></header>
+ <main id="main" class="container"></main>
+ <nav class="tabs"><button class="tab ${view==='home'?'active':''}" data-v="home"><b>⌂</b>Accueil</button><button class="tab ${view==='expenses'?'active':''}" data-v="expenses"><b>€</b>Dépenses</button><button class="tab ${view==='history'?'active':''}" data-v="history"><b>▥</b>Historique</button><button class="tab ${view==='profile'?'active':''}" data-v="profile"><b>◉</b>Profil</button></nav></div>`;
+ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{view=b.dataset.v;renderShell()});
+ document.getElementById('roleBtn').onclick=()=>toast('L’autre profil se connecte avec son propre numéro');
+ ({home:homeView,expenses:expensesView,history:historyView,profile:profileView}[view]||homeView)();
 }
-$('#saveExpense').addEventListener('click',e=>{e.preventDefault(); const amount=Number($('#amount').value); if(!$('#expenseDate').value||!$('#merchant').value||!amount){alert('Merci de vérifier la date, le commerce et le montant.');return;} expenses.push({id:Date.now(),date:$('#expenseDate').value,merchant:$('#merchant').value.trim(),amount,category:$('#category').value,note:$('#note').value.trim(),source:'ticket'});$('#reviewDialog').close();$('#ticketInput').value='';save();});
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
-render();
+
+function myExpenses(){return state.expenses.slice().sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt.localeCompare(a.createdAt))}
+function sums(){const d=new Date(), t=today(), mk=ym(d);const start=new Date(d);start.setDate(d.getDate()-((d.getDay()+6)%7));start.setHours(0,0,0,0);let day=0,week=0,month=0;for(const x of state.expenses){const xd=new Date(x.date+'T12:00:00');if(x.date===t)day+=+x.amount;if(xd>=start)week+=+x.amount;if(x.date.startsWith(mk))month+=+x.amount}return{day,week,month}}
+
+function homeView(){const s=sums(),p=currentProfile(),msg=state.messages[today()]||{};document.getElementById('main').innerHTML=`
+ <div class="grid3"><div class="metric"><small>Aujourd’hui</small><strong>${fmt(s.day)}</strong></div><div class="metric"><small>Cette semaine</small><strong>${fmt(s.week)}</strong></div><div class="metric"><small>Ce mois-ci</small><strong>${fmt(s.month)}</strong></div></div>
+ <section class="card"><div class="card-title"><h2>Messages du jour</h2><span class="subtle">${new Intl.DateTimeFormat('fr-FR',{weekday:'long',day:'numeric',month:'long'}).format(new Date())}</span></div><div class="message-grid">
+ <div class="message-box"><h3>🎓 Message étudiant</h3><div class="message-text">${escapeHtml(msg.student||'Aucun message aujourd’hui.')}</div><div class="message-meta">Visible par les parents</div><button class="btn btn-soft btn-block" data-msg="student" style="margin-top:9px">${p.role==='student'?'Écrire / modifier':'Lire'}</button></div>
+ <div class="message-box"><h3>👪 Message parents</h3><div class="message-text">${escapeHtml(msg.parent||'Aucun message aujourd’hui.')}</div><div class="message-meta">Visible par l’étudiant</div><button class="btn btn-soft btn-block" data-msg="parent" style="margin-top:9px">${p.role==='parent'?'Écrire / modifier':'Lire'}</button></div></div></section>
+ <section class="card"><div class="card-title"><h2>Dépenses récentes</h2><button id="add" class="btn btn-blue">+ Ajouter</button></div><div class="expense-list">${expenseRows(myExpenses().slice(0,5))||'<div class="empty">Aucune dépense enregistrée.</div>'}</div></section>
+ <section class="card"><div class="card-title"><h2>Historique mensuel</h2><button id="goHist" class="btn btn-soft">Voir tout</button></div>${monthRows()}</section>`;
+ document.getElementById('add').onclick=expenseModal;document.getElementById('goHist').onclick=()=>{view='history';renderShell()};document.querySelectorAll('[data-msg]').forEach(b=>b.onclick=()=>{const kind=b.dataset.msg;if((p.role==='student'&&kind==='student')||(p.role==='parent'&&kind==='parent'))messageModal(kind)});wireMonths();
+}
+
+function expensesView(){document.getElementById('main').innerHTML=`<section class="card"><div class="card-title"><h2>Toutes les dépenses</h2><button id="add" class="btn btn-blue">+ Ajouter</button></div><div class="expense-list">${expenseRows(myExpenses())||'<div class="empty">Aucune dépense enregistrée.</div>'}</div></section>`;document.getElementById('add').onclick=expenseModal;}
+function historyView(){document.getElementById('main').innerHTML=`<section class="card"><div class="card-title"><h2>Historique mensuel</h2><span class="subtle">Touchez un mois pour voir le détail</span></div>${monthRows(true)}<div id="monthDetail"></div></section>`;wireMonths(true)}
+function profileView(){const p=currentProfile();document.getElementById('main').innerHTML=`<section class="card"><div class="card-title"><h2>Mon profil</h2></div><div class="profile-line"><span>Numéro</span><strong>${prettyPhone(p.phone)}</strong></div><div class="profile-line"><span>Profil</span><strong>${p.role==='student'?'Étudiant':'Parent'}</strong></div><div class="profile-line"><span>Session</span><strong>Reste connectée</strong></div><button id="pinChange" class="btn btn-soft btn-block" style="margin-top:14px">Modifier mon code PIN</button><button id="logout" class="btn btn-danger btn-block" style="margin-top:8px">Se déconnecter</button></section><div class="danger-note">Cette V2 fonctionne en stockage local sur l’appareil. Pour partager automatiquement les mêmes dépenses et messages entre plusieurs téléphones, il faudra connecter l’application à une base sécurisée.</div>`;document.getElementById('pinChange').onclick=()=>renderChangePin(false);document.getElementById('logout').onclick=()=>{localStorage.removeItem(SESSION_KEY);session=null;app()}}
+
+function expenseRows(arr){return arr.map(x=>`<div class="expense"><div class="ico">${CATS[x.category]||'🧾'}</div><div><div class="name">${escapeHtml(x.shop||x.category)}</div><div class="meta">${dateFr(x.date)} · ${escapeHtml(x.category)}${x.note?' · '+escapeHtml(x.note):''}</div></div><div class="amount">${fmt(x.amount)}</div></div>`).join('')}
+function groupedMonths(){const g={};for(const x of state.expenses){const k=x.date.slice(0,7);(g[k]??=[]).push(x)}return Object.entries(g).sort((a,b)=>b[0].localeCompare(a[0]))}
+function monthRows(includeEmpty=false){const g=groupedMonths();if(!g.length)return '<div class="empty">Les mois apparaîtront ici dès qu’une dépense sera enregistrée.</div>';return `<div class="month-list">${g.map(([k,a])=>`<div class="month" data-month="${k}"><div><strong style="text-transform:capitalize">${monthName(k)}</strong><div class="subtle">${a.length} dépense${a.length>1?'s':''}</div></div><div style="display:flex;align-items:center;gap:10px"><strong>${fmt(a.reduce((s,x)=>s+(+x.amount),0))}</strong><span class="chev">›</span></div></div>`).join('')}</div>`}
+function wireMonths(detailOnly=false){document.querySelectorAll('[data-month]').forEach(el=>el.onclick=()=>showMonth(el.dataset.month))}
+function showMonth(k){const arr=myExpenses().filter(x=>x.date.startsWith(k));const html=`<div class="modal-backdrop" id="back"><div class="modal"><div class="card-title"><div><h2 style="text-transform:capitalize">${monthName(k)}</h2><div class="subtle">Total ${fmt(arr.reduce((s,x)=>s+(+x.amount),0))}</div></div><button id="close" class="btn btn-soft">Fermer</button></div><div class="expense-list">${expenseRows(arr)}</div></div></div>`;document.body.insertAdjacentHTML('beforeend',html);document.getElementById('close').onclick=closeModal;document.getElementById('back').onclick=e=>{if(e.target.id==='back')closeModal()}}
+function closeModal(){document.querySelector('.modal-backdrop')?.remove()}
+
+function expenseModal(){document.body.insertAdjacentHTML('beforeend',`<div class="modal-backdrop" id="back"><div class="modal"><div class="card-title"><h2>Nouvelle dépense</h2><button id="close" class="btn btn-soft">Fermer</button></div><form id="expForm" class="form"><div class="row2"><div class="field"><label>Date</label><input id="edate" type="date" value="${today()}" required></div><div class="field"><label>Montant</label><input id="eamount" inputmode="decimal" placeholder="0,00" required></div></div><div class="field"><label>Commerce</label><input id="eshop" placeholder="Ex. Carrefour"></div><div class="field"><label>Catégorie</label><select id="ecat">${Object.keys(CATS).map(c=>`<option>${c}</option>`).join('')}</select></div><div class="field"><label>Commentaire</label><input id="enote" placeholder="Optionnel"></div><button class="btn btn-primary btn-block">Enregistrer la dépense</button></form></div></div>`);document.getElementById('close').onclick=closeModal;document.getElementById('back').onclick=e=>{if(e.target.id==='back')closeModal()};document.getElementById('expForm').onsubmit=e=>{e.preventDefault();const n=parseFloat(eamount.value.replace(',','.'));if(!n||n<0)return toast('Montant invalide');state.expenses.push({id:crypto.randomUUID?crypto.randomUUID():Date.now().toString(),date:edate.value,amount:n,shop:eshop.value.trim(),category:ecat.value,note:enote.value.trim(),createdAt:new Date().toISOString()});save();closeModal();toast('Dépense enregistrée');renderShell()}}
+function messageModal(kind){const m=state.messages[today()]||{};document.body.insertAdjacentHTML('beforeend',`<div class="modal-backdrop" id="back"><div class="modal"><div class="card-title"><h2>${kind==='student'?'Message étudiant':'Message parents'}</h2><button id="close" class="btn btn-soft">Fermer</button></div><form id="msgForm" class="form"><div class="field"><label>Message du jour</label><textarea id="msg">${escapeHtml(m[kind]||'')}</textarea></div><button class="btn btn-primary btn-block">Enregistrer</button></form></div></div>`);document.getElementById('close').onclick=closeModal;document.getElementById('msgForm').onsubmit=e=>{e.preventDefault();state.messages[today()]={...(state.messages[today()]||{}),[kind]:msg.value.trim(),updatedAt:new Date().toISOString()};save();closeModal();toast('Message enregistré');renderShell()}}
+function dateFr(s){return new Intl.DateTimeFormat('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date(s+'T12:00:00'))}
+function prettyPhone(s){return s.replace(/(\d{2})(?=\d)/g,'$1 ').trim()}
+function escapeHtml(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
+app();

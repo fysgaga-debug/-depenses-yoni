@@ -1,29 +1,19 @@
-# Dépenses Dauphine — V1
+# Dépenses Dauphine — V2
 
-Prototype PWA mobile pour le suivi des dépenses étudiantes.
+Version statique PWA pour GitHub Pages.
 
-## Fonctionnalités
-- Interface Étudiant / Parents
-- Photo de ticket depuis mobile
-- OCR local dans le navigateur avec Tesseract.js
-- Pré-remplissage date / montant / commerce / catégorie quand possible
-- Validation obligatoire par l'étudiant avant enregistrement
-- Vue jour / semaine / mois
-- Répartition par catégories côté parents
-- Historique stocké localement dans le navigateur
-- Installation comme application mobile (PWA)
+## Nouveautés
+- Connexion par numéro de téléphone + PIN à 4 chiffres.
+- Premier code universel : `1612`, puis changement obligatoire.
+- Session conservée sur l'appareil.
+- Profils Étudiant / Parent.
+- Bulle « Message étudiant » et « Message parents » chaque jour.
+- Dépenses journalières et totaux jour / semaine / mois.
+- Historique mensuel cliquable avec détail des dépenses du mois.
+- Logo `dauphine-logo.jpeg` utilisé s'il est présent dans le dépôt, avec fallback si l'image manque.
 
 ## Important
-Cette V1 est un prototype front-end. Les données sont enregistrées dans `localStorage` sur l'appareil utilisé.
-Les numéros de téléphone réels ne sont volontairement pas intégrés au code afin de ne pas les exposer dans un dépôt GitHub public.
+Cette V2 utilise le stockage local du navigateur. Les données ne sont pas encore synchronisées entre plusieurs appareils. Pour une vraie utilisation familiale multi-téléphones, prévoir un backend sécurisé (par ex. Supabase) et une authentification serveur.
 
-Pour une version familiale multi-appareils avec connexion par SMS, ajouter un backend (par exemple Supabase) : Auth OTP SMS, base Postgres, stockage des photos et règles d'accès par rôle.
-
-## GitHub Pages
-1. Créez un dépôt GitHub, par exemple `depenses-dauphine`.
-2. Copiez tous les fichiers de ce dossier à la racine du dépôt.
-3. Dans GitHub : Settings > Pages > Deploy from a branch > `main` / root.
-4. Ouvrez l'URL GitHub Pages sur l'iPhone puis utilisez « Ajouter à l'écran d'accueil ».
-
-## Sécurité
-Pour une V2 en production : ne jamais mettre de clé d'API OCR ou d'identifiants privés directement dans `app.js`.
+## Mise en ligne
+Remplacer dans la branche `main` les fichiers `index.html`, `styles.css`, `app.js`, `manifest.webmanifest`, `sw.js` et `README.md`. Conserver `dauphine-logo.jpeg` déjà présent dans le dépôt.

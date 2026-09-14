@@ -3,7 +3,7 @@
   "short_name":"Dépenses",
   "start_url":"./",
   "display":"standalone",
-  "background_color":"#f4f7fb",
-  "theme_color":"#23498f",
-  "icons":[{"src":"assets/dauphine-logo.jpeg","sizes":"1024x1024","type":"image/jpeg","purpose":"any maskable"}]
+  "background_color":"#edf3fa",
+  "theme_color":"#0b1e3d",
+  "description":"Suivi familial des dépenses étudiantes"
 }
